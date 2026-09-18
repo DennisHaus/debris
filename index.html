@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
   <title>Sediment Flow Simulator</title>
 
@@ -39,8 +42,10 @@
         <p class="description">
           A simplified terrain-based model for observing sediment movement
           across changing topography. – For visualisation purposes only.<br><br>
+
           Developed by Dennis Häusler, Institute for Landscape and Urban
-          Studies, ETH Zurich, 2026, haeusler@arch.ethz.ch <br>
+          Studies, ETH Zurich, 2026, haeusler@arch.ethz.ch<br>
+
           assisted by AI (GPT-5.6)
         </p>
       </header>
@@ -150,7 +155,7 @@
                   min="0"
                   max="10"
                   step="0.1"
-                  value="1"
+                  value="0"
                 >
               </div>
 
@@ -160,7 +165,7 @@
                 min="0"
                 max="10"
                 step="0.1"
-                value="1"
+                value="0"
               >
             </div>
 
@@ -200,10 +205,21 @@
                 </label>
 
                 <select id="startDirectionMode">
-                  <option value="downhill">DOWNHILL</option>
-                  <option value="fixed">FIXED HEADING</option>
-                  <option value="radial">RADIAL FROM SOURCE</option>
-                  <option value="vector">USER VECTOR</option>
+                  <option value="downhill">
+                    DOWNHILL
+                  </option>
+
+                  <option value="fixed">
+                    FIXED HEADING
+                  </option>
+
+                  <option value="radial">
+                    RADIAL FROM SOURCE
+                  </option>
+
+                  <option value="vector">
+                    USER VECTOR
+                  </option>
                 </select>
               </div>
             </div>
@@ -473,8 +489,13 @@
                 </label>
 
                 <select id="releaseShapeMode">
-                  <option value="rectangle">SQUARE AREA</option>
-                  <option value="polygon">CUSTOM POLYGON</option>
+                  <option value="rectangle">
+                    SQUARE AREA
+                  </option>
+
+                  <option value="polygon">
+                    CUSTOM POLYGON
+                  </option>
                 </select>
               </div>
             </div>
@@ -496,7 +517,7 @@
                   min="100"
                   max="100000"
                   step="100"
-                  value="1000"
+                  value="3500"
                 >
               </div>
 
@@ -506,7 +527,7 @@
                 min="100"
                 max="100000"
                 step="100"
-                value="1000"
+                value="3500"
               >
             </div>
 
@@ -530,8 +551,8 @@
               </button>
 
               <div id="drawShapeHint">
-                Hold CMD or CTRL and left-click terrain points. Press ENTER
-                to finish.
+                Hold CMD or CTRL and left-click terrain points.
+                Press ENTER to finish.
               </div>
 
               <div id="releaseAreaReadout">
@@ -553,7 +574,7 @@
                   min="1000"
                   max="500000"
                   step="1000"
-                  value="3500"
+                  value="7000"
                 >
               </div>
 
@@ -563,7 +584,7 @@
                 min="1000"
                 max="500000"
                 step="1000"
-                value="3500"
+                value="7000"
               >
             </div>
 
@@ -580,8 +601,8 @@
                   type="number"
                   min="0.001"
                   max="10"
-                  step="0.001"
-                  value="0.01"
+                  step="0.000001"
+                  value="0.142857"
                 >
               </div>
 
@@ -590,8 +611,8 @@
                 type="range"
                 min="0.001"
                 max="10"
-                step="0.001"
-                value="0.01"
+                step="0.000001"
+                value="0.142857"
               >
             </div>
 
@@ -603,11 +624,17 @@
                 </label>
 
                 <select id="colorMode">
-                  <option value="material">MATERIAL</option>
-                  <option value="velocity">VELOCITY</option>
-                  <option value="distance">DISTANCE TRAVELED</option>
-                  <option value="thickness">FLOW THICKNESS</option>
-                  <option value="age">PARTICLE AGE</option>
+                  <option value="velocity">
+                    VELOCITY
+                  </option>
+
+                  <option value="distance">
+                    DISTANCE TRAVELED
+                  </option>
+
+                  <option value="thickness">
+                    FLOW THICKNESS
+                  </option>
                 </select>
               </div>
             </div>
@@ -815,7 +842,9 @@
       >
         <div class="timeline-heading">
           <span>SIMULATION CACHE</span>
-          <span id="timelineReadout">0.00 s</span>
+          <span id="timelineReadout">
+            0.00 s
+          </span>
         </div>
 
         <input
@@ -828,8 +857,8 @@
         >
 
         <div class="timeline-note">
-          Drag to review cached positions. PLAY resumes from the selected
-          frame.
+          Drag to review cached positions.
+          PLAY resumes from the selected frame.
         </div>
       </div>
 
@@ -840,13 +869,14 @@
         </span>
 
         <span id="particleCountStatus">
-          35 PARTICLES
+          1,000 particles
         </span>
       </footer>
 
     </aside>
 
   </main>
+
 
   <script
     type="module"

@@ -49,8 +49,7 @@ const ui = {
   directionXNumber: $("directionXNumber"),
 
   userDirectionZControl: $("userDirectionZControl"),
-  directionZ: $("directionZ"),
-  directionZNumber: $("directionZNumber"),
+  directionZ: $("directionZNumber"),
 
   terrainResolution: $("terrainResolution"),
   terrainResolutionNumber: $("terrainResolutionNumber"),
@@ -127,7 +126,7 @@ const DEFAULT_PARAMS = {
   terrainFriction: 0.65,
   particleCohesion: 0.35,
 
-  startVelocity: 1,
+  startVelocity: 0,
   simulationSpeed: 1,
 
   startDirectionMode: "downhill",
@@ -143,12 +142,17 @@ const DEFAULT_PARAMS = {
   depthScale: 1,
 
   releaseShapeMode: "rectangle",
-  sourceArea: 1000,
+  sourceArea: 3500,
 
-  sourceVolume: 3500,
-  particleDensity: 0.01,
+  sourceVolume: 7000,
 
-  colorMode: "material",
+  /*
+    7000 m³ × 0.142857 particles/m³
+    = approximately 1000 particles.
+  */
+  particleDensity: 0.142857,
+
+  colorMode: "velocity",
   particleSize: 2,
 
   rotationX: 0,
@@ -173,10 +177,8 @@ const MAX_SOURCE_VOLUME = 500000;
 
 
 /*
-  Reduced from 20,000.
-
-  The physics model performs particle-particle collisions and cohesion
-  on the CPU. 4,000 particles are a safer default for interactive use.
+  CPU-based particle collision and cohesion are still used.
+  4,000 is the maximum number of particles actually simulated.
 */
 const MAX_SIMULATED_PARTICLES = 4000;
 
@@ -184,26 +186,19 @@ const GRAVITY = 9.81;
 
 
 /*
-  Reduced from 1 / 120.
-
-  60 Hz is normally sufficient for this visualisation and cuts the
-  number of physics updates approximately in half.
+  30 physics steps per second.
 */
-const PHYSICS_STEP = 1 / 60;
+const PHYSICS_STEP = 1 / 30;
 
 
 /*
-  Reduced from 20.
-
-  This prevents the application from trying to catch up with too many
-  physics steps after a temporary frame-rate drop.
+  Limits the amount of physics work performed after a slow frame.
 */
 const MAX_PHYSICS_SUBSTEPS = 8;
 
 
 /*
-  Reduced from 3.
-
+  One collision pass is faster.
   Increase to 2 if particles visibly overlap too much.
 */
 const COLLISION_ITERATIONS = 1;
@@ -405,11 +400,8 @@ const pointer =
 
 
 /*
-  Reused by terrainNormalAt().
-
-  The previous implementation created a new THREE.Vector3 for every
-  normal query. This object is reused because callers only consume the
-  result immediately.
+  Reused by terrainNormalAt() to avoid creating a new THREE.Vector3
+  for every terrain-contact calculation.
 */
 const terrainNormalScratch =
   new THREE.Vector3();
@@ -869,8 +861,11 @@ function alpineHeight(
     ) *
     0.075;
 
-  const warpedX = nx + warpX;
-  const warpedZ = nz + warpZ;
+  const warpedX =
+    nx + warpX;
+
+  const warpedZ =
+    nz + warpZ;
 
   const ridgeLine =
     0.035 *
@@ -1177,12 +1172,8 @@ function buildTerrainGeometry(
 
 
 /*
-  Builds terrain normals once from the height field.
-
-  Previously terrainNormalAt() sampled four terrain heights and created
-  a new vector every time it was called. Since terrain normals do not
-  change during a simulation, we precompute them for every terrain grid
-  vertex and interpolate between them at runtime.
+  Precomputes one normal for every terrain-grid vertex.
+  These normals are interpolated during the simulation.
 */
 function buildTerrainNormalField(
   heights,
@@ -1956,11 +1947,6 @@ function terrainHeightAt(x, z) {
 }
 
 
-/*
-  Interpolates a precomputed terrain normal.
-
-  No additional terrain height queries are required here.
-*/
 function terrainNormalAt(x, z) {
   if (
     !terrainState ||
@@ -3160,9 +3146,6 @@ function generateParticles() {
       count * 3
     );
 
-  const ages =
-    new Float32Array(count);
-
   const distanceTraveled =
     new Float32Array(count);
 
@@ -3279,7 +3262,6 @@ function generateParticles() {
     count,
     positions,
     velocities,
-    ages,
     distanceTraveled,
     settledDuration,
     lastPositions,
@@ -3486,7 +3468,6 @@ function updateParticleColors() {
 
   let maximumSpeed = 0;
   let maximumDistance = 0;
-  let maximumAge = 0;
 
   for (
     let i = 0;
@@ -3520,67 +3501,68 @@ function updateParticleColors() {
         maximumDistance,
         particles.distanceTraveled[i]
       );
-
-    maximumAge =
-      Math.max(
-        maximumAge,
-        particles.ages[i]
-      );
   }
 
-  const thicknessCell =
-    Math.max(
-      5,
-      particles.radius * 4
-    );
-
-  const thicknessMap =
-    new Map();
-
-  for (
-    let i = 0;
-    i < count;
-    i++
-  ) {
-    const index =
-      i * 3;
-
-    const x =
-      particles.positions[index];
-
-    const z =
-      particles.positions[index + 2];
-
-    const key =
-      `${Math.floor(x / thicknessCell)}:` +
-      `${Math.floor(z / thicknessCell)}`;
-
-    thicknessMap.set(
-      key,
-      (
-        thicknessMap.get(key) || 0
-      ) +
-      particles.parcelVolume
-    );
-  }
-
+  let thicknessCell = 0;
+  let thicknessMap = null;
   let maximumThickness = 0;
 
-  for (
-    const volume of thicknessMap.values()
+  if (
+    params.colorMode ===
+    "thickness"
   ) {
-    const thickness =
-      volume /
-      (
-        thicknessCell *
-        thicknessCell
+    thicknessCell =
+      Math.max(
+        5,
+        particles.radius * 4
       );
 
-    maximumThickness =
-      Math.max(
-        maximumThickness,
-        thickness
+    thicknessMap =
+      new Map();
+
+    for (
+      let i = 0;
+      i < count;
+      i++
+    ) {
+      const index =
+        i * 3;
+
+      const x =
+        particles.positions[index];
+
+      const z =
+        particles.positions[index + 2];
+
+      const key =
+        `${Math.floor(x / thicknessCell)}:` +
+        `${Math.floor(z / thicknessCell)}`;
+
+      thicknessMap.set(
+        key,
+        (
+          thicknessMap.get(key) || 0
+        ) +
+        particles.parcelVolume
       );
+    }
+
+    for (
+      const volume of thicknessMap.values()
+    ) {
+      const thickness =
+        volume /
+        (
+          thicknessCell *
+          thicknessCell
+        );
+
+      maximumThickness =
+        Math.max(
+          maximumThickness,
+          thickness
+        );
+    }
   }
 
   const temporaryColor =
@@ -3594,41 +3576,7 @@ function updateParticleColors() {
     const index =
       i * 3;
 
-    let value = 0.6;
-
-    if (
-      params.colorMode ===
-      "material"
-    ) {
-      value =
-        0.35 +
-        params.materialFriction *
-          0.45;
-    }
-
-    if (
-      params.colorMode ===
-      "velocity"
-    ) {
-      const vx =
-        particles.velocities[index];
-
-      const vy =
-        particles.velocities[index + 1];
-
-      const vz =
-        particles.velocities[index + 2];
-
-      value =
-        maximumSpeed > 0
-          ? Math.hypot(
-              vx,
-              vy,
-              vz
-            ) /
-            maximumSpeed
-          : 0;
-    }
+    let value = 0;
 
     if (
       params.colorMode ===
@@ -3639,20 +3587,7 @@ function updateParticleColors() {
           ? particles.distanceTraveled[i] /
             maximumDistance
           : 0;
-    }
-
-    if (
-      params.colorMode ===
-      "age"
-    ) {
-      value =
-        maximumAge > 0
-          ? particles.ages[i] /
-            maximumAge
-          : 0;
-    }
-
-    if (
+    } else if (
       params.colorMode ===
       "thickness"
     ) {
@@ -3680,6 +3615,29 @@ function updateParticleColors() {
         maximumThickness > 0
           ? thickness /
             maximumThickness
+          : 0;
+    } else {
+      /*
+        Default mode: velocity.
+        Unknown legacy values also fall back to velocity.
+      */
+      const vx =
+        particles.velocities[index];
+
+      const vy =
+        particles.velocities[index + 1];
+
+      const vz =
+        particles.velocities[index + 2];
+
+      value =
+        maximumSpeed > 0
+          ? Math.hypot(
+              vx,
+              vy,
+              vz
+            ) /
+            maximumSpeed
           : 0;
     }
 
@@ -3770,6 +3728,7 @@ function buildSpatialHash(cellSize) {
 
     if (!bucket) {
       bucket = [];
+
       hash.set(
         key,
         bucket
@@ -3803,10 +3762,8 @@ function applyCohesion(deltaTime) {
     buildSpatialHash(range);
 
   /*
-    No checkedPairs Set is required.
-
-    Because j <= i is skipped and every particle belongs to exactly
-    one spatial bucket, each pair is processed only once.
+    No checkedPairs Set is needed.
+    j <= i guarantees that each pair is evaluated only once.
   */
   for (
     let i = 0;
@@ -4228,6 +4185,14 @@ function resolveParticleCollisions() {
               distance <= 0.000001
             ) {
               checked++;
+
+              if (
+                checked >=
+                MAX_COLLISION_NEIGHBOURS
+              ) {
+                break;
+              }
+
               continue;
             }
 
@@ -4267,6 +4232,13 @@ function resolveParticleCollisions() {
             particles.positions[otherIndex + 2] +=
               nz * correction;
 
+            /*
+              Relative velocity uses:
+              relative = velocityA - velocityB
+
+              The normal points from A to B.
+              For approaching particles, normalVelocity is positive.
+            */
             const relativeX =
               particles.velocities[positionIndex] -
               particles.velocities[otherIndex];
@@ -4285,32 +4257,32 @@ function resolveParticleCollisions() {
               relativeZ * nz;
 
             if (
-              normalVelocity < 0
+              normalVelocity > 0
             ) {
               const normalImpulse =
-                -(
+                (
                   1 +
                   COLLISION_RESTITUTION
                 ) *
                 normalVelocity *
                 0.5;
 
-              particles.velocities[positionIndex] +=
+              particles.velocities[positionIndex] -=
                 nx * normalImpulse;
 
-              particles.velocities[positionIndex + 1] +=
+              particles.velocities[positionIndex + 1] -=
                 ny * normalImpulse;
 
-              particles.velocities[positionIndex + 2] +=
+              particles.velocities[positionIndex + 2] -=
                 nz * normalImpulse;
 
-              particles.velocities[otherIndex] -=
+              particles.velocities[otherIndex] +=
                 nx * normalImpulse;
 
-              particles.velocities[otherIndex + 1] -=
+              particles.velocities[otherIndex + 1] +=
                 ny * normalImpulse;
 
-              particles.velocities[otherIndex + 2] -=
+              particles.velocities[otherIndex + 2] +=
                 nz * normalImpulse;
 
               const tangentX =
@@ -4521,9 +4493,6 @@ function updatePhysics(deltaTime) {
     particles.distanceTraveled[i] +=
       movement;
 
-    particles.ages[i] +=
-      deltaTime;
-
     if (
       speed <
         params.minimumMovementSpeed &&
@@ -4692,10 +4661,6 @@ function restoreSimulationSnapshot(index) {
 
   particles.distanceTraveled.set(
     snapshot.distanceTraveled
-  );
-
-  particles.ages.fill(
-    snapshot.time
   );
 
   particles.settledDuration.fill(
@@ -4971,6 +4936,7 @@ function simulateFrame(realDeltaTime) {
       syncPointParticles();
       updateParticleColors();
       finishSimulation();
+
       return;
     }
   }
@@ -5101,6 +5067,7 @@ function pointerDownCapture(event) {
     }
 
     addDraftPoint(point);
+
     return;
   }
 
