@@ -40,8 +40,23 @@ const ui = {
   terrainFriction: $("terrainFriction"),
   terrainFrictionNumber: $("terrainFrictionNumber"),
 
+  staticFrictionFactor: $("staticFrictionFactor"),
+  staticFrictionFactorNumber: $("staticFrictionFactorNumber"),
+
   particleCohesion: $("particleCohesion"),
   particleCohesionNumber: $("particleCohesionNumber"),
+
+  cohesionRestDistanceFactor:
+    $("cohesionRestDistanceFactor"),
+
+  cohesionRestDistanceFactorNumber:
+    $("cohesionRestDistanceFactorNumber"),
+
+  contactDamping: $("contactDamping"),
+  contactDampingNumber: $("contactDampingNumber"),
+
+  flowDragLength: $("flowDragLength"),
+  flowDragLengthNumber: $("flowDragLengthNumber"),
 
   startVelocity: $("startVelocity"),
   startVelocityNumber: $("startVelocityNumber"),
@@ -70,47 +85,71 @@ const ui = {
   modelScaleNumber: $("modelScaleNumber"),
 
   metersPerModelUnit: $("metersPerModelUnit"),
-  metersPerModelUnitNumber: $("metersPerModelUnitNumber"),
+  metersPerModelUnitNumber:
+    $("metersPerModelUnitNumber"),
 
-  verticalExaggeration: $("verticalExaggeration"),
-  verticalScaleNumber: $("verticalScaleNumber"),
+  verticalExaggeration:
+    $("verticalExaggeration"),
+
+  verticalScaleNumber:
+    $("verticalScaleNumber"),
 
   depthScale: $("depthScale"),
   depthScaleNumber: $("depthScaleNumber"),
 
   releaseShapeMode: $("releaseShapeMode"),
 
-  rectangleAreaControl: $("rectangleAreaControl"),
+  rectangleAreaControl:
+    $("rectangleAreaControl"),
+
   sourceArea: $("sourceArea"),
   sourceAreaNumber: $("sourceAreaNumber"),
 
-  customShapeControl: $("customShapeControl"),
-  drawReleaseShapeButton: $("drawReleaseShapeButton"),
-  clearReleaseShapeButton: $("clearReleaseShapeButton"),
+  customShapeControl:
+    $("customShapeControl"),
+
+  drawReleaseShapeButton:
+    $("drawReleaseShapeButton"),
+
+  clearReleaseShapeButton:
+    $("clearReleaseShapeButton"),
+
   drawShapeHint: $("drawShapeHint"),
-  releaseAreaReadout: $("releaseAreaReadout"),
+
+  releaseAreaReadout:
+    $("releaseAreaReadout"),
 
   sourceVolume: $("sourceVolume"),
-  sourceVolumeNumber: $("sourceVolumeNumber"),
+  sourceVolumeNumber:
+    $("sourceVolumeNumber"),
 
-  particleDensity: $("particleDensity"),
-  particleDensityNumber: $("particleDensityNumber"),
+  particleDensity:
+    $("particleDensity"),
+
+  particleDensityNumber:
+    $("particleDensityNumber"),
 
   colorMode: $("colorMode"),
 
   particleSize: $("particleSize"),
-  particleSizeNumber: $("particleSizeNumber"),
+  particleSizeNumber:
+    $("particleSizeNumber"),
 
   rotationX: $("rotationX"),
-  rotationXNumber: $("rotationXNumber"),
+  rotationXNumber:
+    $("rotationXNumber"),
 
   rotationY: $("rotationY"),
-  rotationYNumber: $("rotationYNumber"),
+  rotationYNumber:
+    $("rotationYNumber"),
 
   rotationZ: $("rotationZ"),
-  rotationZNumber: $("rotationZNumber"),
+  rotationZNumber:
+    $("rotationZNumber"),
 
-  resetOrientationButton: $("resetOrientationButton"),
+  resetOrientationButton:
+    $("resetOrientationButton"),
+
   playButton: $("playButton"),
   resetButton: $("resetButton"),
   addButton: $("addButton"),
@@ -118,14 +157,17 @@ const ui = {
 
   dropZone: $("dropZone"),
   modelFileInput: $("modelFileInput"),
-  chooseModelButton: $("chooseModelButton"),
+  chooseModelButton:
+    $("chooseModelButton"),
 
   timelineWrap: $("timelineWrap"),
   timeline: $("timeline"),
-  timelineReadout: $("timelineReadout"),
+  timelineReadout:
+    $("timelineReadout"),
 
   status: $("status"),
-  particleCountStatus: $("particleCountStatus")
+  particleCountStatus:
+    $("particleCountStatus")
 };
 
 
@@ -136,7 +178,31 @@ const ui = {
 const DEFAULT_PARAMS = {
   materialFriction: 0.35,
   terrainFriction: 0.65,
+
+  /*
+    Static friction is derived from kinetic friction:
+    static friction = terrainFriction × staticFrictionFactor
+  */
+  staticFrictionFactor: 1.15,
+
   particleCohesion: 0.35,
+
+  /*
+    Preferred distance is:
+    particle radius × cohesionRestDistanceFactor
+  */
+  cohesionRestDistanceFactor: 2.1,
+
+  /*
+    Fraction of tangential contact motion removed per contact.
+  */
+  contactDamping: 0.15,
+
+  /*
+    Quadratic drag uses:
+    drag acceleration = speed² / flowDragLength
+  */
+  flowDragLength: 120,
 
   startVelocity: 0,
   simulationSpeed: 1,
@@ -155,7 +221,6 @@ const DEFAULT_PARAMS = {
 
   releaseShapeMode: "rectangle",
   sourceArea: 3500,
-
   sourceVolume: 7000,
 
   /*
@@ -183,7 +248,7 @@ const params = {
 
 
 /* ------------------------------------------------------------------------- */
-/* Performance and simulation settings                                      */
+/* Simulation settings                                                       */
 /* ------------------------------------------------------------------------- */
 
 const TERRAIN_SIZE = 600;
@@ -196,19 +261,19 @@ const MAX_SIMULATED_PARTICLES = 4000;
 const GRAVITY = 9.81;
 
 /*
-  30 physics steps per second.
+  30 physics updates per second.
 */
 const PHYSICS_STEP = 1 / 30;
 
 const MAX_PHYSICS_SUBSTEPS = 8;
 
-/*
-  Increase to 2 if particles visibly overlap too much.
-*/
 const COLLISION_ITERATIONS = 1;
-
 const COLLISION_RESTITUTION = 0;
+
 const SURFACE_CLEARANCE = 0.025;
+const SURFACE_CONTACT_TOLERANCE = 0.05;
+
+const STATIC_VELOCITY_THRESHOLD = 0.035;
 
 const DEFAULT_IMPORTED_ROTATION_X = -90;
 
@@ -228,7 +293,7 @@ const INITIAL_PARTICLE_VERTICAL_SPACING = 2.04;
 
 
 /* ------------------------------------------------------------------------- */
-/* Colors                                                                    */
+/* Colour map                                                                */
 /* ------------------------------------------------------------------------- */
 
 const MAKO_STOPS = [
@@ -491,9 +556,29 @@ function syncInitialUi() {
       "terrainFriction"
     ],
     [
+      ui.staticFrictionFactor,
+      ui.staticFrictionFactorNumber,
+      "staticFrictionFactor"
+    ],
+    [
       ui.particleCohesion,
       ui.particleCohesionNumber,
       "particleCohesion"
+    ],
+    [
+      ui.cohesionRestDistanceFactor,
+      ui.cohesionRestDistanceFactorNumber,
+      "cohesionRestDistanceFactor"
+    ],
+    [
+      ui.contactDamping,
+      ui.contactDampingNumber,
+      "contactDamping"
+    ],
+    [
+      ui.flowDragLength,
+      ui.flowDragLengthNumber,
+      "flowDragLength"
     ],
     [
       ui.startVelocity,
@@ -619,11 +704,7 @@ function bindRangeAndNumber(
     !numberElement
   ) {
     console.error(
-      `Could not bind UI parameter "${parameterName}".`,
-      {
-        rangeElement,
-        numberElement
-      }
+      `Could not bind parameter "${parameterName}".`
     );
 
     return;
@@ -706,7 +787,9 @@ function bindRangeAndNumber(
 
 
 function requestParticleReset() {
-  if (params.running) {
+  if (
+    params.running
+  ) {
     setStatus(
       "RESET REQUIRED FOR NEW PARAMETERS"
     );
@@ -714,7 +797,9 @@ function requestParticleReset() {
     return;
   }
 
-  clearTimeout(resetTimer);
+  clearTimeout(
+    resetTimer
+  );
 
   resetTimer =
     setTimeout(
@@ -816,11 +901,12 @@ function updateShapeVisibility() {
 
 
 /* ------------------------------------------------------------------------- */
-/* Terrain generation                                                        */
+/* Terrain                                                                   */
 /* ------------------------------------------------------------------------- */
 
 function fract(value) {
-  return value - Math.floor(value);
+  return value -
+    Math.floor(value);
 }
 
 
@@ -1363,8 +1449,8 @@ function buildTerrainNormalField(
             nextX - previousX
           ) *
             gridStepX,
-          0.000001
-        );
+        0.000001
+      );
 
       const index =
         z * resolution + x;
@@ -1443,7 +1529,9 @@ function setTerrain(
   sizeZ,
   sourceType
 ) {
-  if (terrainMesh) {
+  if (
+    terrainMesh
+  ) {
     scene.remove(
       terrainMesh
     );
@@ -1617,7 +1705,9 @@ function extractPointsFromObject(object) {
           "position"
         );
 
-      if (!position) {
+      if (
+        !position
+      ) {
         return;
       }
 
@@ -1802,7 +1892,9 @@ function buildImportedTerrain() {
   }
 
   if (
-    !Number.isFinite(minimumY)
+    !Number.isFinite(
+      minimumY
+    )
   ) {
     minimumY =
       bounds.min.y;
@@ -2272,7 +2364,9 @@ function absolutePolygonArea(points) {
 
 function polygonCentroid(points) {
   const signedArea =
-    signedPolygonArea(points);
+    signedPolygonArea(
+      points
+    );
 
   if (
     Math.abs(signedArea) <
@@ -2324,7 +2418,11 @@ function polygonCentroid(points) {
   }
 
   return centroid.multiplyScalar(
-    1 / (6 * signedArea)
+    1 /
+    (
+      6 *
+      signedArea
+    )
   );
 }
 
@@ -3733,7 +3831,8 @@ function updateParticleColors() {
   let maximumThickness = 0;
 
   if (
-    params.colorMode === "thickness"
+    params.colorMode ===
+    "thickness"
   ) {
     thicknessCell =
       Math.max(
@@ -3803,7 +3902,8 @@ function updateParticleColors() {
     let value = 0;
 
     if (
-      params.colorMode === "distance"
+      params.colorMode ===
+      "distance"
     ) {
       value =
         maximumDistance > 0
@@ -3811,7 +3911,8 @@ function updateParticleColors() {
             maximumDistance
           : 0;
     } else if (
-      params.colorMode === "thickness"
+      params.colorMode ===
+      "thickness"
     ) {
       const x =
         particles.positions[index];
@@ -3910,7 +4011,7 @@ function syncPointParticles() {
 
 
 /* ------------------------------------------------------------------------- */
-/* Physics                                                                   */
+/* Physics helpers                                                           */
 /* ------------------------------------------------------------------------- */
 
 function spatialKey(x, y, z) {
@@ -3967,6 +4068,235 @@ function buildSpatialHash(cellSize) {
 }
 
 
+function particleSurfaceHeight(x, z) {
+  return (
+    terrainHeightAt(
+      x,
+      z
+    ) +
+    particles.radius +
+    SURFACE_CLEARANCE
+  );
+}
+
+
+function particleIsNearTerrain(
+  x,
+  y,
+  z
+) {
+  return (
+    y <=
+    particleSurfaceHeight(
+      x,
+      z
+    ) +
+    SURFACE_CONTACT_TOLERANCE
+  );
+}
+
+
+/*
+  Applies gravity tangentially to the terrain when a particle is close to
+  the surface. Airborne particles receive ordinary vertical gravity.
+
+  It also applies velocity-dependent quadratic drag to the tangential
+  velocity while a particle is in contact with the terrain.
+*/
+function applyForcesAndIntegrate(
+  deltaTime
+) {
+  for (
+    let i = 0;
+    i < particles.count;
+    i++
+  ) {
+    const index =
+      i * 3;
+
+    let x =
+      particles.positions[index];
+
+    let y =
+      particles.positions[index + 1];
+
+    let z =
+      particles.positions[index + 2];
+
+    let vx =
+      particles.velocities[index];
+
+    let vy =
+      particles.velocities[index + 1];
+
+    let vz =
+      particles.velocities[index + 2];
+
+    const nearTerrain =
+      particleIsNearTerrain(
+        x,
+        y,
+        z
+      );
+
+    let nx = 0;
+    let ny = 1;
+    let nz = 0;
+
+    if (
+      nearTerrain
+    ) {
+      const normal =
+        terrainNormalAt(
+          x,
+          z
+        );
+
+      nx = normal.x;
+      ny = normal.y;
+      nz = normal.z;
+    }
+
+    let gravityX = 0;
+    let gravityY = -GRAVITY;
+    let gravityZ = 0;
+
+    if (
+      nearTerrain
+    ) {
+      const gravityNormalComponent =
+        gravityY * ny;
+
+      gravityX -=
+        gravityNormalComponent *
+        nx;
+
+      gravityY -=
+        gravityNormalComponent *
+        ny;
+
+      gravityZ -=
+        gravityNormalComponent *
+        nz;
+    }
+
+    vx +=
+      gravityX *
+      deltaTime;
+
+    vy +=
+      gravityY *
+      deltaTime;
+
+    vz +=
+      gravityZ *
+      deltaTime;
+
+    if (
+      nearTerrain
+    ) {
+      const normalVelocity =
+        vx * nx +
+        vy * ny +
+        vz * nz;
+
+      const tangentX =
+        vx -
+        nx * normalVelocity;
+
+      const tangentY =
+        vy -
+        ny * normalVelocity;
+
+      const tangentZ =
+        vz -
+        nz * normalVelocity;
+
+      const tangentSpeed =
+        Math.hypot(
+          tangentX,
+          tangentY,
+          tangentZ
+        );
+
+      if (
+        tangentSpeed > 0.000001
+      ) {
+        const dragLength =
+          Math.max(
+            params.flowDragLength,
+            0.001
+          );
+
+        const dragAcceleration =
+          tangentSpeed *
+          tangentSpeed /
+          dragLength;
+
+        const dragFactor =
+          Math.max(
+            0,
+            1 -
+              (
+                dragAcceleration *
+                deltaTime /
+                tangentSpeed
+              )
+          );
+
+        vx =
+          tangentX *
+          dragFactor +
+          nx *
+          normalVelocity;
+
+        vy =
+          tangentY *
+          dragFactor +
+          ny *
+          normalVelocity;
+
+        vz =
+          tangentZ *
+          dragFactor +
+          nz *
+          normalVelocity;
+      }
+    }
+
+    x +=
+      vx *
+      deltaTime;
+
+    y +=
+      vy *
+      deltaTime;
+
+    z +=
+      vz *
+      deltaTime;
+
+    particles.velocities[index] =
+      vx;
+
+    particles.velocities[index + 1] =
+      vy;
+
+    particles.velocities[index + 2] =
+      vz;
+
+    particles.positions[index] =
+      x;
+
+    particles.positions[index + 1] =
+      y;
+
+    particles.positions[index + 2] =
+      z;
+  }
+}
+
+
 function applyCohesion(deltaTime) {
   if (
     !particles ||
@@ -3981,6 +4311,21 @@ function applyCohesion(deltaTime) {
         2 *
         COHESION_RANGE_MULTIPLIER,
       0.1
+    );
+
+  const restDistance =
+    clamp(
+      particles.radius *
+        params.cohesionRestDistanceFactor,
+      particles.radius * 2,
+      range * 0.95
+    );
+
+  const attractionRange =
+    Math.max(
+      range -
+        restDistance,
+      0.001
     );
 
   const hash =
@@ -4078,19 +4423,24 @@ function applyCohesion(deltaTime) {
               );
 
             if (
-              distance <= 0.000001 ||
-              distance >= range
+              distance <= restDistance ||
+              distance >= range ||
+              distance <= 0.000001
             ) {
               continue;
             }
 
+            const stretch =
+              (
+                distance -
+                restDistance
+              ) /
+              attractionRange;
+
             const strength =
               params.particleCohesion *
               COHESION_STRENGTH *
-              (
-                1 -
-                distance / range
-              );
+              stretch;
 
             const impulse =
               strength *
@@ -4106,22 +4456,28 @@ function applyCohesion(deltaTime) {
               dzp / distance;
 
             particles.velocities[index] +=
-              nx * impulse;
+              nx *
+              impulse;
 
             particles.velocities[index + 1] +=
-              ny * impulse;
+              ny *
+              impulse;
 
             particles.velocities[index + 2] +=
-              nz * impulse;
+              nz *
+              impulse;
 
             particles.velocities[jIndex] -=
-              nx * impulse;
+              nx *
+              impulse;
 
             particles.velocities[jIndex + 1] -=
-              ny * impulse;
+              ny *
+              impulse;
 
             particles.velocities[jIndex + 2] -=
-              nz * impulse;
+              nz *
+              impulse;
 
             neighbourCount++;
 
@@ -4160,6 +4516,14 @@ function applyCohesion(deltaTime) {
 }
 
 
+/*
+  Terrain contact with:
+
+  - terrain-height constraint
+  - removal of inward normal velocity
+  - static friction threshold
+  - kinetic friction after sliding begins
+*/
 function resolveTerrainContact(
   index,
   deltaTime
@@ -4174,12 +4538,10 @@ function resolveTerrainContact(
     particles.positions[positionIndex + 2];
 
   const surface =
-    terrainHeightAt(
+    particleSurfaceHeight(
       x,
       z
-    ) +
-    particles.radius +
-    SURFACE_CLEARANCE;
+    );
 
   if (
     particles.positions[positionIndex + 1] >
@@ -4254,19 +4616,51 @@ function resolveTerrainContact(
       tangentZ
     );
 
+  const supportFactor =
+    Math.max(
+      normal.y,
+      0.1
+    );
+
+  const downhillAcceleration =
+    GRAVITY *
+    Math.sqrt(
+      Math.max(
+        0,
+        1 -
+          normal.y *
+          normal.y
+      )
+    );
+
+  const kineticFrictionAcceleration =
+    params.terrainFriction *
+    GRAVITY *
+    supportFactor;
+
+  const staticFrictionAcceleration =
+    params.terrainFriction *
+    params.staticFrictionFactor *
+    GRAVITY *
+    supportFactor;
+
+  const shouldRemainStatic =
+    tangentSpeed <
+      STATIC_VELOCITY_THRESHOLD &&
+    downhillAcceleration <=
+      staticFrictionAcceleration;
+
   if (
+    shouldRemainStatic
+  ) {
+    tangentX = 0;
+    tangentY = 0;
+    tangentZ = 0;
+  } else if (
     tangentSpeed > 0.000001
   ) {
-    const frictionAcceleration =
-      params.terrainFriction *
-      GRAVITY *
-      Math.max(
-        normal.y,
-        0.1
-      );
-
     const speedReduction =
-      frictionAcceleration *
+      kineticFrictionAcceleration *
       deltaTime;
 
     const factor =
@@ -4452,22 +4846,28 @@ function resolveParticleCollisions() {
               0.9;
 
             particles.positions[positionIndex] -=
-              nx * correction;
+              nx *
+              correction;
 
             particles.positions[positionIndex + 1] -=
-              ny * correction;
+              ny *
+              correction;
 
             particles.positions[positionIndex + 2] -=
-              nz * correction;
+              nz *
+              correction;
 
             particles.positions[otherIndex] +=
-              nx * correction;
+              nx *
+              correction;
 
             particles.positions[otherIndex + 1] +=
-              ny * correction;
+              ny *
+              correction;
 
             particles.positions[otherIndex + 2] +=
-              nz * correction;
+              nz *
+              correction;
 
             const relativeX =
               particles.velocities[positionIndex] -
@@ -4486,11 +4886,6 @@ function resolveParticleCollisions() {
               relativeY * ny +
               relativeZ * nz;
 
-            /*
-              The normal points from particle A to particle B.
-              With relative velocity A - B, approaching particles
-              have a positive normalVelocity.
-            */
             if (
               normalVelocity > 0
             ) {
@@ -4503,82 +4898,116 @@ function resolveParticleCollisions() {
                 0.5;
 
               particles.velocities[positionIndex] -=
-                nx * normalImpulse;
+                nx *
+                normalImpulse;
 
               particles.velocities[positionIndex + 1] -=
-                ny * normalImpulse;
+                ny *
+                normalImpulse;
 
               particles.velocities[positionIndex + 2] -=
-                nz * normalImpulse;
+                nz *
+                normalImpulse;
 
               particles.velocities[otherIndex] +=
-                nx * normalImpulse;
+                nx *
+                normalImpulse;
 
               particles.velocities[otherIndex + 1] +=
-                ny * normalImpulse;
+                ny *
+                normalImpulse;
 
               particles.velocities[otherIndex + 2] +=
-                nz * normalImpulse;
+                nz *
+                normalImpulse;
+            }
 
-              const tangentX =
-                relativeX -
-                nx * normalVelocity;
+            const tangentX =
+              relativeX -
+              nx *
+              normalVelocity;
 
-              const tangentY =
-                relativeY -
-                ny * normalVelocity;
+            const tangentY =
+              relativeY -
+              ny *
+              normalVelocity;
 
-              const tangentZ =
-                relativeZ -
-                nz * normalVelocity;
+            const tangentZ =
+              relativeZ -
+              nz *
+              normalVelocity;
 
-              const tangentSpeed =
-                Math.hypot(
-                  tangentX,
-                  tangentY,
-                  tangentZ
+            const tangentSpeed =
+              Math.hypot(
+                tangentX,
+                tangentY,
+                tangentZ
+              );
+
+            if (
+              tangentSpeed > 0.000001
+            ) {
+              const materialImpulse =
+                normalVelocity > 0
+                  ? Math.min(
+                      tangentSpeed * 0.5,
+                      params.materialFriction *
+                        normalVelocity *
+                        0.5
+                    )
+                  : 0;
+
+              const dampingImpulse =
+                tangentSpeed *
+                0.5 *
+                clamp(
+                  params.contactDamping,
+                  0,
+                  1
                 );
 
-              if (
-                tangentSpeed > 0.000001
-              ) {
-                const frictionImpulse =
-                  Math.min(
-                    tangentSpeed * 0.5,
-                    params.materialFriction *
-                      normalImpulse
-                  );
+              const totalTangentialImpulse =
+                Math.min(
+                  tangentSpeed * 0.5,
+                  materialImpulse +
+                    dampingImpulse
+                );
 
-                const tx =
-                  tangentX /
-                  tangentSpeed;
+              const tx =
+                tangentX /
+                tangentSpeed;
 
-                const ty =
-                  tangentY /
-                  tangentSpeed;
+              const ty =
+                tangentY /
+                tangentSpeed;
 
-                const tz =
-                  tangentZ /
-                  tangentSpeed;
+              const tz =
+                tangentZ /
+                tangentSpeed;
 
-                particles.velocities[positionIndex] -=
-                  tx * frictionImpulse;
+              particles.velocities[positionIndex] -=
+                tx *
+                totalTangentialImpulse;
 
-                particles.velocities[positionIndex + 1] -=
-                  ty * frictionImpulse;
+              particles.velocities[positionIndex + 1] -=
+                ty *
+                totalTangentialImpulse;
 
-                particles.velocities[positionIndex + 2] -=
-                  tz * frictionImpulse;
+              particles.velocities[positionIndex + 2] -=
+                tz *
+                totalTangentialImpulse;
 
-                particles.velocities[otherIndex] +=
-                  tx * frictionImpulse;
+              particles.velocities[otherIndex] +=
+                tx *
+                totalTangentialImpulse;
 
-                particles.velocities[otherIndex + 1] +=
-                  ty * frictionImpulse;
+              particles.velocities[otherIndex + 1] +=
+                ty *
+                totalTangentialImpulse;
 
-                particles.velocities[otherIndex + 2] +=
-                  tz * frictionImpulse;
-              }
+              particles.velocities[otherIndex + 2] +=
+                tz *
+                totalTangentialImpulse;
             }
 
             checked++;
@@ -4647,30 +5076,9 @@ function updatePhysics(deltaTime) {
     deltaTime
   );
 
-  for (
-    let i = 0;
-    i < particles.count;
-    i++
-  ) {
-    const index =
-      i * 3;
-
-    particles.velocities[index + 1] -=
-      GRAVITY *
-      deltaTime;
-
-    particles.positions[index] +=
-      particles.velocities[index] *
-      deltaTime;
-
-    particles.positions[index + 1] +=
-      particles.velocities[index + 1] *
-      deltaTime;
-
-    particles.positions[index + 2] +=
-      particles.velocities[index + 2] *
-      deltaTime;
-  }
+  applyForcesAndIntegrate(
+    deltaTime
+  );
 
   for (
     let iteration = 0;
@@ -5611,9 +6019,37 @@ bindRangeAndNumber(
 
 
 bindRangeAndNumber(
+  ui.staticFrictionFactor,
+  ui.staticFrictionFactorNumber,
+  "staticFrictionFactor"
+);
+
+
+bindRangeAndNumber(
   ui.particleCohesion,
   ui.particleCohesionNumber,
   "particleCohesion"
+);
+
+
+bindRangeAndNumber(
+  ui.cohesionRestDistanceFactor,
+  ui.cohesionRestDistanceFactorNumber,
+  "cohesionRestDistanceFactor"
+);
+
+
+bindRangeAndNumber(
+  ui.contactDamping,
+  ui.contactDampingNumber,
+  "contactDamping"
+);
+
+
+bindRangeAndNumber(
+  ui.flowDragLength,
+  ui.flowDragLengthNumber,
+  "flowDragLength"
 );
 
 
@@ -6075,6 +6511,7 @@ function animate(currentTime) {
     currentTime;
 
   controls.update();
+
   simulateFrame(
     deltaTime
   );
