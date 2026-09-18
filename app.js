@@ -17,7 +17,18 @@ import {
 } from "three/addons/loaders/OBJLoader.js";
 
 
-const $ = (id) => document.getElementById(id);
+function $(id) {
+  const element =
+    document.getElementById(id);
+
+  if (!element) {
+    throw new Error(
+      `Missing HTML element with id "${id}".`
+    );
+  }
+
+  return element;
+}
 
 
 const ui = {
@@ -49,7 +60,8 @@ const ui = {
   directionXNumber: $("directionXNumber"),
 
   userDirectionZControl: $("userDirectionZControl"),
-  directionZ: $("directionZNumber"),
+  directionZ: $("directionZ"),
+  directionZNumber: $("directionZNumber"),
 
   terrainResolution: $("terrainResolution"),
   terrainResolutionNumber: $("terrainResolutionNumber"),
@@ -118,7 +130,7 @@ const ui = {
 
 
 /* ------------------------------------------------------------------------- */
-/* Parameters and performance settings                                       */
+/* Parameters                                                                */
 /* ------------------------------------------------------------------------- */
 
 const DEFAULT_PARAMS = {
@@ -170,35 +182,27 @@ const params = {
 };
 
 
+/* ------------------------------------------------------------------------- */
+/* Performance and simulation settings                                      */
+/* ------------------------------------------------------------------------- */
+
 const TERRAIN_SIZE = 600;
 
 const MIN_SOURCE_VOLUME = 1000;
 const MAX_SOURCE_VOLUME = 500000;
 
-
-/*
-  CPU-based particle collision and cohesion are still used.
-  4,000 is the maximum number of particles actually simulated.
-*/
 const MAX_SIMULATED_PARTICLES = 4000;
 
 const GRAVITY = 9.81;
-
 
 /*
   30 physics steps per second.
 */
 const PHYSICS_STEP = 1 / 30;
 
-
-/*
-  Limits the amount of physics work performed after a slow frame.
-*/
 const MAX_PHYSICS_SUBSTEPS = 8;
 
-
 /*
-  One collision pass is faster.
   Increase to 2 if particles visibly overlap too much.
 */
 const COLLISION_ITERATIONS = 1;
@@ -223,6 +227,10 @@ const INITIAL_PARTICLE_HORIZONTAL_SPACING = 2.04;
 const INITIAL_PARTICLE_VERTICAL_SPACING = 2.04;
 
 
+/* ------------------------------------------------------------------------- */
+/* Colors                                                                    */
+/* ------------------------------------------------------------------------- */
+
 const MAKO_STOPS = [
   "#0b0405",
   "#151434",
@@ -237,16 +245,18 @@ const MAKO_STOPS = [
   "#f7f4c6"
 ];
 
-const MAKO_COLORS = MAKO_STOPS.map(
-  (hex) => new THREE.Color(hex)
-);
+const MAKO_COLORS =
+  MAKO_STOPS.map(
+    (hex) => new THREE.Color(hex)
+  );
 
 
 /* ------------------------------------------------------------------------- */
 /* Three.js scene                                                            */
 /* ------------------------------------------------------------------------- */
 
-const scene = new THREE.Scene();
+const scene =
+  new THREE.Scene();
 
 scene.background =
   new THREE.Color(0x030303);
@@ -302,7 +312,11 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.07;
 controls.minDistance = 2;
 controls.maxDistance = 5000;
-controls.target.set(0, 40, 0);
+controls.target.set(
+  0,
+  40,
+  0
+);
 
 
 const hemisphereLight =
@@ -312,7 +326,9 @@ const hemisphereLight =
     1.35
   );
 
-scene.add(hemisphereLight);
+scene.add(
+  hemisphereLight
+);
 
 
 const sunLight =
@@ -339,7 +355,9 @@ sunLight.shadow.camera.right = 500;
 sunLight.shadow.camera.top = 500;
 sunLight.shadow.camera.bottom = -500;
 
-scene.add(sunLight);
+scene.add(
+  sunLight
+);
 
 
 const terrainMaterial =
@@ -354,7 +372,14 @@ const terrainMaterial =
 const sourceGroup =
   new THREE.Group();
 
-scene.add(sourceGroup);
+scene.add(
+  sourceGroup
+);
+
+
+/* ------------------------------------------------------------------------- */
+/* State                                                                     */
+/* ------------------------------------------------------------------------- */
 
 let sourceOutline = null;
 let sourceVolumeWire = null;
@@ -375,7 +400,7 @@ let cacheFrames = [];
 let replayMode = false;
 let replayIndex = -1;
 
-let source = {
+const source = {
   center: new THREE.Vector2(0, 0),
   customPolygonLocal: null,
   customArea: 0,
@@ -383,7 +408,7 @@ let source = {
   draftWorld: []
 };
 
-let simulation = {
+const simulation = {
   started: false,
   time: 0,
   accumulator: 0,
@@ -391,18 +416,12 @@ let simulation = {
   state: "paused"
 };
 
-
 const raycaster =
   new THREE.Raycaster();
 
 const pointer =
   new THREE.Vector2();
 
-
-/*
-  Reused by terrainNormalAt() to avoid creating a new THREE.Vector3
-  for every terrain-contact calculation.
-*/
 const terrainNormalScratch =
   new THREE.Vector3();
 
@@ -444,8 +463,18 @@ function setSliderAndNumber(
   numberElement,
   value
 ) {
-  rangeElement.value = String(value);
-  numberElement.value = String(value);
+  if (
+    !rangeElement ||
+    !numberElement
+  ) {
+    return;
+  }
+
+  rangeElement.value =
+    String(value);
+
+  numberElement.value =
+    String(value);
 }
 
 
@@ -553,11 +582,13 @@ function syncInitialUi() {
     ]
   ];
 
-  for (const [
-    rangeElement,
-    numberElement,
-    parameterName
-  ] of pairs) {
+  for (
+    const [
+      rangeElement,
+      numberElement,
+      parameterName
+    ] of pairs
+  ) {
     setSliderAndNumber(
       rangeElement,
       numberElement,
@@ -583,15 +614,36 @@ function bindRangeAndNumber(
   onInput = () => {},
   onCommit = () => {}
 ) {
-  const update = (value) => {
-    const numericValue = Number(value);
+  if (
+    !rangeElement ||
+    !numberElement
+  ) {
+    console.error(
+      `Could not bind UI parameter "${parameterName}".`,
+      {
+        rangeElement,
+        numberElement
+      }
+    );
 
-    if (!Number.isFinite(numericValue)) {
+    return;
+  }
+
+  const update = (value) => {
+    const numericValue =
+      Number(value);
+
+    if (
+      !Number.isFinite(numericValue)
+    ) {
       return;
     }
 
-    const min = Number(rangeElement.min);
-    const max = Number(rangeElement.max);
+    const min =
+      Number(rangeElement.min);
+
+    const max =
+      Number(rangeElement.max);
 
     params[parameterName] =
       clamp(
@@ -601,39 +653,53 @@ function bindRangeAndNumber(
       );
 
     rangeElement.value =
-      String(params[parameterName]);
+      String(
+        params[parameterName]
+      );
 
     numberElement.value =
-      String(params[parameterName]);
+      String(
+        params[parameterName]
+      );
 
-    onInput(params[parameterName]);
+    onInput(
+      params[parameterName]
+    );
   };
 
   rangeElement.addEventListener(
     "input",
     () => {
-      update(rangeElement.value);
+      update(
+        rangeElement.value
+      );
     }
   );
 
   numberElement.addEventListener(
     "input",
     () => {
-      update(numberElement.value);
+      update(
+        numberElement.value
+      );
     }
   );
 
   rangeElement.addEventListener(
     "change",
     () => {
-      onCommit(params[parameterName]);
+      onCommit(
+        params[parameterName]
+      );
     }
   );
 
   numberElement.addEventListener(
     "change",
     () => {
-      onCommit(params[parameterName]);
+      onCommit(
+        params[parameterName]
+      );
     }
   );
 }
@@ -650,9 +716,13 @@ function requestParticleReset() {
 
   clearTimeout(resetTimer);
 
-  resetTimer = setTimeout(() => {
-    resetSimulation();
-  }, 140);
+  resetTimer =
+    setTimeout(
+      () => {
+        resetSimulation();
+      },
+      140
+    );
 }
 
 
@@ -684,7 +754,9 @@ function updateParticleReadout() {
       MAX_SIMULATED_PARTICLES
     );
 
-  if (requested > simulated) {
+  if (
+    requested > simulated
+  ) {
     ui.particleCountStatus.textContent =
       `${formatNumber(requested)} requested · ` +
       `${formatNumber(simulated)} simulated`;
@@ -744,7 +816,7 @@ function updateShapeVisibility() {
 
 
 /* ------------------------------------------------------------------------- */
-/* Terrain                                                                   */
+/* Terrain generation                                                        */
 /* ------------------------------------------------------------------------- */
 
 function fract(value) {
@@ -766,11 +838,17 @@ function hash2(x, z) {
 
 
 function valueNoise(x, z) {
-  const x0 = Math.floor(x);
-  const z0 = Math.floor(z);
+  const x0 =
+    Math.floor(x);
 
-  const tx = fract(x);
-  const tz = fract(z);
+  const z0 =
+    Math.floor(z);
+
+  const tx =
+    fract(x);
+
+  const tz =
+    fract(z);
 
   const sx =
     tx * tx * (3 - 2 * tx);
@@ -778,10 +856,17 @@ function valueNoise(x, z) {
   const sz =
     tz * tz * (3 - 2 * tz);
 
-  const a = hash2(x0, z0);
-  const b = hash2(x0 + 1, z0);
-  const c = hash2(x0, z0 + 1);
-  const d = hash2(x0 + 1, z0 + 1);
+  const a =
+    hash2(x0, z0);
+
+  const b =
+    hash2(x0 + 1, z0);
+
+  const c =
+    hash2(x0, z0 + 1);
+
+  const d =
+    hash2(x0 + 1, z0 + 1);
 
   const ab =
     THREE.MathUtils.lerp(
@@ -823,7 +908,9 @@ function fbm(x, z, octaves = 5) {
       ) *
       amplitude;
 
-    normalisation += amplitude;
+    normalisation +=
+      amplitude;
+
     amplitude *= 0.5;
     frequency *= 2;
   }
@@ -838,8 +925,11 @@ function alpineHeight(
   sizeX,
   sizeZ
 ) {
-  const nx = x / sizeX;
-  const nz = z / sizeZ;
+  const nx =
+    x / sizeX;
+
+  const nz =
+    z / sizeZ;
 
   const warpX =
     (
@@ -869,9 +959,13 @@ function alpineHeight(
 
   const ridgeLine =
     0.035 *
-      Math.sin(warpedX * 18) +
+      Math.sin(
+        warpedX * 18
+      ) +
     0.018 *
-      Math.sin(warpedX * 43);
+      Math.sin(
+        warpedX * 43
+      );
 
   const ridgeDistance =
     warpedZ - ridgeLine;
@@ -901,7 +995,9 @@ function alpineHeight(
           warpedZ +
           0.26 +
           0.04 *
-            Math.sin(warpedX * 12)
+            Math.sin(
+              warpedX * 12
+            )
         ) /
           0.15,
         2
@@ -1007,7 +1103,9 @@ function limitGridSlopes(
         const index =
           z * resolution + x;
 
-        if (x < resolution - 1) {
+        if (
+          x < resolution - 1
+        ) {
           const neighbourIndex =
             z * resolution + x + 1;
 
@@ -1032,7 +1130,9 @@ function limitGridSlopes(
           }
         }
 
-        if (z < resolution - 1) {
+        if (
+          z < resolution - 1
+        ) {
           const neighbourIndex =
             (z + 1) * resolution + x;
 
@@ -1131,9 +1231,14 @@ function buildTerrainGeometry(
       const a =
         z * resolution + x;
 
-      const b = a + 1;
-      const c = a + resolution;
-      const d = c + 1;
+      const b =
+        a + 1;
+
+      const c =
+        a + resolution;
+
+      const d =
+        c + 1;
 
       indices[pointer++] = a;
       indices[pointer++] = c;
@@ -1171,10 +1276,6 @@ function buildTerrainGeometry(
 }
 
 
-/*
-  Precomputes one normal for every terrain-grid vertex.
-  These normals are interpolated during the simulation.
-*/
 function buildTerrainNormalField(
   heights,
   resolution,
@@ -1185,13 +1286,19 @@ function buildTerrainNormalField(
     resolution * resolution;
 
   const normalX =
-    new Float32Array(vertexCount);
+    new Float32Array(
+      vertexCount
+    );
 
   const normalY =
-    new Float32Array(vertexCount);
+    new Float32Array(
+      vertexCount
+    );
 
   const normalZ =
-    new Float32Array(vertexCount);
+    new Float32Array(
+      vertexCount
+    );
 
   const gridStepX =
     sizeX /
@@ -1296,9 +1403,13 @@ function buildTerrainNormalField(
         ) /
         actualStepZ;
 
-      let nx = -slopeX;
+      let nx =
+        -slopeX;
+
       let ny = 1;
-      let nz = -slopeZ;
+
+      let nz =
+        -slopeZ;
 
       const length =
         Math.hypot(
@@ -1333,7 +1444,10 @@ function setTerrain(
   sourceType
 ) {
   if (terrainMesh) {
-    scene.remove(terrainMesh);
+    scene.remove(
+      terrainMesh
+    );
+
     terrainMesh.geometry.dispose();
   }
 
@@ -1354,12 +1468,16 @@ function setTerrain(
   terrainMesh.receiveShadow = true;
   terrainMesh.castShadow = false;
 
-  scene.add(terrainMesh);
+  scene.add(
+    terrainMesh
+  );
 
   let minimum = Infinity;
   let maximum = -Infinity;
 
-  for (const height of heights) {
+  for (
+    const height of heights
+  ) {
     minimum =
       Math.min(
         minimum,
@@ -1403,7 +1521,9 @@ function setTerrain(
 function buildProceduralTerrain() {
   const resolution =
     clamp(
-      Math.round(params.terrainResolution),
+      Math.round(
+        params.terrainResolution
+      ),
       64,
       768
     );
@@ -1479,47 +1599,51 @@ function buildProceduralTerrain() {
 function extractPointsFromObject(object) {
   const points = [];
 
-  object.updateMatrixWorld(true);
+  object.updateMatrixWorld(
+    true
+  );
 
-  object.traverse((child) => {
-    if (
-      !child.isMesh ||
-      !child.geometry
-    ) {
-      return;
+  object.traverse(
+    (child) => {
+      if (
+        !child.isMesh ||
+        !child.geometry
+      ) {
+        return;
+      }
+
+      const position =
+        child.geometry.getAttribute(
+          "position"
+        );
+
+      if (!position) {
+        return;
+      }
+
+      const vertex =
+        new THREE.Vector3();
+
+      for (
+        let i = 0;
+        i < position.count;
+        i++
+      ) {
+        vertex.fromBufferAttribute(
+          position,
+          i
+        );
+
+        vertex.applyMatrix4(
+          child.matrixWorld
+        );
+
+        points.push(
+          vertex.clone()
+        );
+      }
     }
-
-    const position =
-      child.geometry.getAttribute(
-        "position"
-      );
-
-    if (!position) {
-      return;
-    }
-
-    const vertex =
-      new THREE.Vector3();
-
-    for (
-      let i = 0;
-      i < position.count;
-      i++
-    ) {
-      vertex.fromBufferAttribute(
-        position,
-        i
-      );
-
-      vertex.applyMatrix4(
-        child.matrixWorld
-      );
-
-      points.push(
-        vertex.clone()
-      );
-    }
-  });
+  );
 
   return points;
 }
@@ -1536,7 +1660,9 @@ function buildImportedTerrain() {
 
   const resolution =
     clamp(
-      Math.round(params.terrainResolution),
+      Math.round(
+        params.terrainResolution
+      ),
       64,
       768
     );
@@ -1557,15 +1683,21 @@ function buildImportedTerrain() {
     );
 
   const transformed =
-    importedRawPoints.map((point) => {
-      return point
-        .clone()
-        .applyEuler(rotation);
-    });
+    importedRawPoints.map(
+      (point) => {
+        return point
+          .clone()
+          .applyEuler(
+            rotation
+          );
+      }
+    );
 
   const bounds =
     new THREE.Box3()
-      .setFromPoints(transformed);
+      .setFromPoints(
+        transformed
+      );
 
   const rawSize =
     bounds.getSize(
@@ -1598,9 +1730,13 @@ function buildImportedTerrain() {
       resolution * resolution
     );
 
-  sampled.fill(NaN);
+  sampled.fill(
+    NaN
+  );
 
-  for (const point of transformed) {
+  for (
+    const point of transformed
+  ) {
     const nx =
       clamp(
         (
@@ -1651,8 +1787,12 @@ function buildImportedTerrain() {
 
   let minimumY = Infinity;
 
-  for (const value of sampled) {
-    if (Number.isFinite(value)) {
+  for (
+    const value of sampled
+  ) {
+    if (
+      Number.isFinite(value)
+    ) {
       minimumY =
         Math.min(
           minimumY,
@@ -1661,7 +1801,9 @@ function buildImportedTerrain() {
     }
   }
 
-  if (!Number.isFinite(minimumY)) {
+  if (
+    !Number.isFinite(minimumY)
+  ) {
     minimumY =
       bounds.min.y;
   }
@@ -1736,7 +1878,9 @@ function buildImportedTerrain() {
           }
         }
 
-        if (count > 0) {
+        if (
+          count > 0
+        ) {
           sampled[index] =
             total / count;
         }
@@ -1779,7 +1923,9 @@ function buildImportedTerrain() {
 
 
 function buildCurrentTerrain() {
-  if (importedRawPoints) {
+  if (
+    importedRawPoints
+  ) {
     buildImportedTerrain();
   } else {
     buildProceduralTerrain();
@@ -1840,7 +1986,9 @@ function fitCameraToTerrain() {
       maximumDimension * 0.72
   );
 
-  controls.target.copy(center);
+  controls.target.copy(
+    center
+  );
 
   controls.target.y +=
     maximumDimension * 0.08;
@@ -1850,7 +1998,9 @@ function fitCameraToTerrain() {
 
 
 function terrainHeightAt(x, z) {
-  if (!terrainState) {
+  if (
+    !terrainState
+  ) {
     return 0;
   }
 
@@ -2096,7 +2246,8 @@ function signedPolygonArea(points) {
     i < points.length;
     i++
   ) {
-    const a = points[i];
+    const a =
+      points[i];
 
     const b =
       points[
@@ -2130,8 +2281,12 @@ function polygonCentroid(points) {
     const average =
       new THREE.Vector2();
 
-    for (const point of points) {
-      average.add(point);
+    for (
+      const point of points
+    ) {
+      average.add(
+        point
+      );
     }
 
     return average.multiplyScalar(
@@ -2147,7 +2302,8 @@ function polygonCentroid(points) {
     i < points.length;
     i++
   ) {
-    const a = points[i];
+    const a =
+      points[i];
 
     const b =
       points[
@@ -2182,8 +2338,11 @@ function pointInPolygon(point, polygon) {
     i < polygon.length;
     j = i++
   ) {
-    const a = polygon[i];
-    const b = polygon[j];
+    const a =
+      polygon[i];
+
+    const b =
+      polygon[j];
 
     const intersects =
       (a.y > point.y) !==
@@ -2196,7 +2355,9 @@ function pointInPolygon(point, polygon) {
           (b.y - a.y) +
           a.x;
 
-    if (intersects) {
+    if (
+      intersects
+    ) {
       inside = !inside;
     }
   }
@@ -2339,7 +2500,8 @@ function polygonSelfIntersects(points) {
     i < count;
     i++
   ) {
-    const a1 = points[i];
+    const a1 =
+      points[i];
 
     const a2 =
       points[
@@ -2351,7 +2513,8 @@ function polygonSelfIntersects(points) {
       j < count;
       j++
     ) {
-      const b1 = points[j];
+      const b1 =
+        points[j];
 
       const b2 =
         points[
@@ -2363,7 +2526,9 @@ function polygonSelfIntersects(points) {
         (i + 1) % count === j ||
         (j + 1) % count === i;
 
-      if (adjacent) {
+      if (
+        adjacent
+      ) {
         continue;
       }
 
@@ -2480,13 +2645,15 @@ function createLineObject(
   loop = false
 ) {
   const vertices =
-    points.map((point) => {
-      return new THREE.Vector3(
-        point.x,
-        point.y,
-        point.z
-      );
-    });
+    points.map(
+      (point) => {
+        return new THREE.Vector3(
+          point.x,
+          point.y,
+          point.z
+        );
+      }
+    );
 
   if (
     loop &&
@@ -2499,7 +2666,9 @@ function createLineObject(
 
   const geometry =
     new THREE.BufferGeometry()
-      .setFromPoints(vertices);
+      .setFromPoints(
+        vertices
+      );
 
   return new THREE.Line(
     geometry,
@@ -2519,7 +2688,9 @@ function updateSourceVisuals() {
     return;
   }
 
-  if (sourceOutline) {
+  if (
+    sourceOutline
+  ) {
     sourceGroup.remove(
       sourceOutline
     );
@@ -2529,16 +2700,18 @@ function updateSourceVisuals() {
   }
 
   const outlinePoints =
-    polygon.map((point) => {
-      return new THREE.Vector3(
-        point.x,
-        terrainHeightAt(
+    polygon.map(
+      (point) => {
+        return new THREE.Vector3(
           point.x,
+          terrainHeightAt(
+            point.x,
+            point.y
+          ) + 0.12,
           point.y
-        ) + 0.12,
-        point.y
-      );
-    });
+        );
+      }
+    );
 
   sourceOutline =
     createLineObject(
@@ -2556,7 +2729,9 @@ function updateSourceVisuals() {
   );
 
 
-  if (sourceVolumeWire) {
+  if (
+    sourceVolumeWire
+  ) {
     sourceGroup.remove(
       sourceVolumeWire
     );
@@ -2628,10 +2803,8 @@ function updateSourceVisuals() {
     segmentVertices.push(
       currentBottom,
       nextBottom,
-
       currentTop,
       nextTop,
-
       currentBottom,
       currentTop
     );
@@ -2657,7 +2830,9 @@ function updateSourceVisuals() {
     sourceVolumeWire
   );
 
-  if (source.customPolygonLocal) {
+  if (
+    source.customPolygonLocal
+  ) {
     ui.releaseAreaReadout.textContent =
       `CUSTOM AREA: ${formatNumber(
         source.customArea
@@ -2670,7 +2845,9 @@ function updateSourceVisuals() {
 
 
 function updateDraftLine() {
-  if (draftLine) {
+  if (
+    draftLine
+  ) {
     sourceGroup.remove(
       draftLine
     );
@@ -2706,8 +2883,7 @@ function updateDraftLine() {
       points,
       new THREE.LineBasicMaterial({
         color: 0xe5b278
-      }),
-      false
+      })
     );
 
   sourceGroup.add(
@@ -2740,7 +2916,9 @@ function finishCustomShape() {
   const points =
     source.draftWorld;
 
-  if (points.length < 3) {
+  if (
+    points.length < 3
+  ) {
     source.drawing = false;
 
     setStatus(
@@ -2751,7 +2929,9 @@ function finishCustomShape() {
   }
 
   if (
-    polygonSelfIntersects(points)
+    polygonSelfIntersects(
+      points
+    )
   ) {
     source.drawing = false;
 
@@ -2763,9 +2943,13 @@ function finishCustomShape() {
   }
 
   const area =
-    absolutePolygonArea(points);
+    absolutePolygonArea(
+      points
+    );
 
-  if (area < 1) {
+  if (
+    area < 1
+  ) {
     source.drawing = false;
 
     setStatus(
@@ -2776,21 +2960,27 @@ function finishCustomShape() {
   }
 
   const centroid =
-    polygonCentroid(points);
+    polygonCentroid(
+      points
+    );
 
   source.center.copy(
     centroid
   );
 
   source.customPolygonLocal =
-    points.map((point) => {
-      return new THREE.Vector2(
-        point.x - centroid.x,
-        point.y - centroid.y
-      );
-    });
+    points.map(
+      (point) => {
+        return new THREE.Vector2(
+          point.x - centroid.x,
+          point.y - centroid.y
+        );
+      }
+    );
 
-  source.customArea = area;
+  source.customArea =
+    area;
+
   source.draftWorld = [];
   source.drawing = false;
 
@@ -2820,13 +3010,18 @@ function addDraftPoint(point) {
       ];
 
     if (
-      previous.distanceTo(point) < 0.5
+      previous.distanceTo(
+        point
+      ) < 0.5
     ) {
       return;
     }
   }
 
-  source.draftWorld.push(point);
+  source.draftWorld.push(
+    point
+  );
+
   updateDraftLine();
 
   setStatus(
@@ -2845,7 +3040,9 @@ function getPolygonBounds(polygon) {
   let maxX = -Infinity;
   let maxZ = -Infinity;
 
-  for (const point of polygon) {
+  for (
+    const point of polygon
+  ) {
     minX =
       Math.min(
         minX,
@@ -2886,11 +3083,15 @@ function buildInitialBasePositions(
   radius
 ) {
   const bounds =
-    getPolygonBounds(polygon);
+    getPolygonBounds(
+      polygon
+    );
 
   const area =
     Math.max(
-      absolutePolygonArea(polygon),
+      absolutePolygonArea(
+        polygon
+      ),
       0.01
     );
 
@@ -2955,7 +3156,9 @@ function buildInitialBasePositions(
           polygon
         )
       ) {
-        candidates.push(point);
+        candidates.push(
+          point
+        );
       }
     }
 
@@ -2966,7 +3169,9 @@ function buildInitialBasePositions(
     candidates.length === 0
   ) {
     candidates.push(
-      polygonCentroid(polygon)
+      polygonCentroid(
+        polygon
+      )
     );
   }
 
@@ -3020,8 +3225,11 @@ function getStartDirection(x, z) {
         z
       );
 
-    dx = -normal.x;
-    dz = -normal.z;
+    dx =
+      -normal.x;
+
+    dz =
+      -normal.z;
   }
 
   if (
@@ -3033,10 +3241,14 @@ function getStartDirection(x, z) {
       );
 
     dx =
-      Math.sin(angle);
+      Math.sin(
+        angle
+      );
 
     dz =
-      Math.cos(angle);
+      Math.cos(
+        angle
+      );
   }
 
   if (
@@ -3051,8 +3263,10 @@ function getStartDirection(x, z) {
       source.center.y;
 
     if (
-      Math.hypot(dx, dz) <
-      0.001
+      Math.hypot(
+        dx,
+        dz
+      ) < 0.001
     ) {
       const normal =
         terrainNormalAt(
@@ -3060,8 +3274,11 @@ function getStartDirection(x, z) {
           z
         );
 
-      dx = -normal.x;
-      dz = -normal.z;
+      dx =
+        -normal.x;
+
+      dz =
+        -normal.z;
     }
   }
 
@@ -3147,10 +3364,14 @@ function generateParticles() {
     );
 
   const distanceTraveled =
-    new Float32Array(count);
+    new Float32Array(
+      count
+    );
 
   const settledDuration =
-    new Float32Array(count);
+    new Float32Array(
+      count
+    );
 
   const lastPositions =
     new Float32Array(
@@ -3278,7 +3499,7 @@ function generateParticles() {
 
 
 /* ------------------------------------------------------------------------- */
-/* Particle rendering                                                       */
+/* Particle rendering                                                        */
 /* ------------------------------------------------------------------------- */
 
 function particleVertexShader() {
@@ -3341,7 +3562,9 @@ function particleFragmentShader() {
 
 
 function createParticleVisual() {
-  if (particlePoints) {
+  if (
+    particlePoints
+  ) {
     scene.remove(
       particlePoints
     );
@@ -3432,7 +3655,9 @@ function makoColor(value, target) {
   const index =
     Math.min(
       MAKO_COLORS.length - 2,
-      Math.floor(scaled)
+      Math.floor(
+        scaled
+      )
     );
 
   const fraction =
@@ -3508,8 +3733,7 @@ function updateParticleColors() {
   let maximumThickness = 0;
 
   if (
-    params.colorMode ===
-    "thickness"
+    params.colorMode === "thickness"
   ) {
     thicknessCell =
       Math.max(
@@ -3579,8 +3803,7 @@ function updateParticleColors() {
     let value = 0;
 
     if (
-      params.colorMode ===
-      "distance"
+      params.colorMode === "distance"
     ) {
       value =
         maximumDistance > 0
@@ -3588,8 +3811,7 @@ function updateParticleColors() {
             maximumDistance
           : 0;
     } else if (
-      params.colorMode ===
-      "thickness"
+      params.colorMode === "thickness"
     ) {
       const x =
         particles.positions[index];
@@ -3617,10 +3839,6 @@ function updateParticleColors() {
             maximumThickness
           : 0;
     } else {
-      /*
-        Default mode: velocity.
-        Unknown legacy values also fall back to velocity.
-      */
       const vx =
         particles.velocities[index];
 
@@ -3638,7 +3856,7 @@ function updateParticleColors() {
               vz
             ) /
             maximumSpeed
-          : 0;
+          : 0.15;
     }
 
     makoColor(
@@ -3659,7 +3877,9 @@ function updateParticleColors() {
   colorAttribute.needsUpdate =
     true;
 
-  if (particleMaterial) {
+  if (
+    particleMaterial
+  ) {
     particleMaterial.uniforms.uSize.value =
       clamp(
         particles.radius *
@@ -3673,7 +3893,9 @@ function updateParticleColors() {
 
 
 function syncPointParticles() {
-  if (!particleGeometry) {
+  if (
+    !particleGeometry
+  ) {
     return;
   }
 
@@ -3688,7 +3910,7 @@ function syncPointParticles() {
 
 
 /* ------------------------------------------------------------------------- */
-/* Physics                                                                  */
+/* Physics                                                                   */
 /* ------------------------------------------------------------------------- */
 
 function spatialKey(x, y, z) {
@@ -3697,7 +3919,8 @@ function spatialKey(x, y, z) {
 
 
 function buildSpatialHash(cellSize) {
-  const hash = new Map();
+  const hash =
+    new Map();
 
   for (
     let i = 0;
@@ -3726,7 +3949,9 @@ function buildSpatialHash(cellSize) {
     let bucket =
       hash.get(key);
 
-    if (!bucket) {
+    if (
+      !bucket
+    ) {
       bucket = [];
 
       hash.set(
@@ -3759,12 +3984,10 @@ function applyCohesion(deltaTime) {
     );
 
   const hash =
-    buildSpatialHash(range);
+    buildSpatialHash(
+      range
+    );
 
-  /*
-    No checkedPairs Set is needed.
-    j <= i guarantees that each pair is evaluated only once.
-  */
   for (
     let i = 0;
     i < particles.count;
@@ -3817,12 +4040,18 @@ function applyCohesion(deltaTime) {
               )
             );
 
-          if (!bucket) {
+          if (
+            !bucket
+          ) {
             continue;
           }
 
-          for (const j of bucket) {
-            if (j <= i) {
+          for (
+            const j of bucket
+          ) {
+            if (
+              j <= i
+            ) {
               continue;
             }
 
@@ -4089,7 +4318,9 @@ function resolveParticleCollisions() {
     );
 
   const hash =
-    buildSpatialHash(diameter);
+    buildSpatialHash(
+      diameter
+    );
 
   for (
     let i = 0;
@@ -4149,12 +4380,18 @@ function resolveParticleCollisions() {
               )
             );
 
-          if (!bucket) {
+          if (
+            !bucket
+          ) {
             continue;
           }
 
-          for (const j of bucket) {
-            if (j <= i) {
+          for (
+            const j of bucket
+          ) {
+            if (
+              j <= i
+            ) {
               continue;
             }
 
@@ -4232,13 +4469,6 @@ function resolveParticleCollisions() {
             particles.positions[otherIndex + 2] +=
               nz * correction;
 
-            /*
-              Relative velocity uses:
-              relative = velocityA - velocityB
-
-              The normal points from A to B.
-              For approaching particles, normalVelocity is positive.
-            */
             const relativeX =
               particles.velocities[positionIndex] -
               particles.velocities[otherIndex];
@@ -4256,6 +4486,11 @@ function resolveParticleCollisions() {
               relativeY * ny +
               relativeZ * nz;
 
+            /*
+              The normal points from particle A to particle B.
+              With relative velocity A - B, approaching particles
+              have a positive normalVelocity.
+            */
             if (
               normalVelocity > 0
             ) {
@@ -4384,7 +4619,9 @@ function resolveParticleCollisions() {
 
 
 function updatePhysics(deltaTime) {
-  if (!particles) {
+  if (
+    !particles
+  ) {
     return false;
   }
 
@@ -4406,7 +4643,9 @@ function updatePhysics(deltaTime) {
       particles.positions[index + 2];
   }
 
-  applyCohesion(deltaTime);
+  applyCohesion(
+    deltaTime
+  );
 
   for (
     let i = 0;
@@ -4547,7 +4786,9 @@ function updateTimelineInterface() {
     !hasTimeline
   );
 
-  if (!hasTimeline) {
+  if (
+    !hasTimeline
+  ) {
     return;
   }
 
@@ -4573,7 +4814,9 @@ function updateTimelineInterface() {
 
   const frame =
     cacheFrames[
-      Number(ui.timeline.value)
+      Number(
+        ui.timeline.value
+      )
     ];
 
   ui.timelineReadout.textContent =
@@ -4595,7 +4838,9 @@ function clearSimulationCache() {
 function recordSimulationSnapshot(
   force = false
 ) {
-  if (!particles) {
+  if (
+    !particles
+  ) {
     return;
   }
 
@@ -4689,7 +4934,9 @@ function handleTimelineInput() {
   }
 
   const index =
-    Number(ui.timeline.value);
+    Number(
+      ui.timeline.value
+    );
 
   replayMode = true;
   replayIndex = index;
@@ -4727,7 +4974,7 @@ function handleTimelineInput() {
 
 
 /* ------------------------------------------------------------------------- */
-/* Simulation control                                                       */
+/* Simulation controls                                                       */
 /* ------------------------------------------------------------------------- */
 
 function updatePlayButton() {
@@ -4751,11 +4998,15 @@ function startSimulation() {
     return;
   }
 
-  if (!particles) {
+  if (
+    !particles
+  ) {
     resetSimulation();
   }
 
-  if (replayMode) {
+  if (
+    replayMode
+  ) {
     const selectedIndex =
       Math.max(
         0,
@@ -4768,11 +5019,8 @@ function startSimulation() {
         selectedIndex + 1
       );
 
-    replayMode =
-      false;
-
-    replayIndex =
-      -1;
+    replayMode = false;
+    replayIndex = -1;
   }
 
   simulation.started =
@@ -4932,7 +5180,9 @@ function simulateFrame(realDeltaTime) {
 
     substeps++;
 
-    if (finished) {
+    if (
+      finished
+    ) {
       syncPointParticles();
       updateParticleColors();
       finishSimulation();
@@ -4947,7 +5197,7 @@ function simulateFrame(realDeltaTime) {
 
 
 /* ------------------------------------------------------------------------- */
-/* Pointer interaction                                                      */
+/* Pointer interaction                                                       */
 /* ------------------------------------------------------------------------- */
 
 function updatePointerFromEvent(event) {
@@ -4979,11 +5229,15 @@ function updatePointerFromEvent(event) {
 
 
 function terrainPointFromEvent(event) {
-  if (!terrainMesh) {
+  if (
+    !terrainMesh
+  ) {
     return null;
   }
 
-  updatePointerFromEvent(event);
+  updatePointerFromEvent(
+    event
+  );
 
   raycaster.setFromCamera(
     pointer,
@@ -5027,7 +5281,9 @@ function moveSourceTo(point) {
 
 
 function pointerDownCapture(event) {
-  if (event.button !== 0) {
+  if (
+    event.button !== 0
+  ) {
     return;
   }
 
@@ -5048,13 +5304,19 @@ function pointerDownCapture(event) {
     event.stopImmediatePropagation();
 
     const point =
-      terrainPointFromEvent(event);
+      terrainPointFromEvent(
+        event
+      );
 
-    if (!point) {
+    if (
+      !point
+    ) {
       return;
     }
 
-    if (!source.drawing) {
+    if (
+      !source.drawing
+    ) {
       source.drawing =
         true;
 
@@ -5066,7 +5328,9 @@ function pointerDownCapture(event) {
       );
     }
 
-    addDraftPoint(point);
+    addDraftPoint(
+      point
+    );
 
     return;
   }
@@ -5081,13 +5345,19 @@ function pointerDownCapture(event) {
     event.stopImmediatePropagation();
 
     const point =
-      terrainPointFromEvent(event);
+      terrainPointFromEvent(
+        event
+      );
 
-    if (!point) {
+    if (
+      !point
+    ) {
       return;
     }
 
-    moveSourceTo(point);
+    moveSourceTo(
+      point
+    );
   }
 }
 
@@ -5102,7 +5372,9 @@ renderer.domElement.addEventListener(
 window.addEventListener(
   "keydown",
   (event) => {
-    if (!source.drawing) {
+    if (
+      !source.drawing
+    ) {
       return;
     }
 
@@ -5148,11 +5420,13 @@ window.addEventListener(
 
 
 /* ------------------------------------------------------------------------- */
-/* Model loading                                                            */
+/* Model loading                                                             */
 /* ------------------------------------------------------------------------- */
 
 async function loadTerrainFile(file) {
-  if (!file) {
+  if (
+    !file
+  ) {
     return;
   }
 
@@ -5199,7 +5473,9 @@ async function loadTerrainFile(file) {
           );
       }
 
-      if (!geometry) {
+      if (
+        !geometry
+      ) {
         throw new Error(
           "Unsupported terrain format"
         );
@@ -5235,7 +5511,9 @@ async function loadTerrainFile(file) {
       `IMPORTED ${extension.toUpperCase()} TERRAIN`
     );
   } catch (error) {
-    console.error(error);
+    console.error(
+      error
+    );
 
     setStatus(
       "MODEL IMPORT FAILED"
@@ -5304,13 +5582,15 @@ ui.dropZone.addEventListener(
     const file =
       event.dataTransfer.files[0];
 
-    loadTerrainFile(file);
+    loadTerrainFile(
+      file
+    );
   }
 );
 
 
 /* ------------------------------------------------------------------------- */
-/* UI bindings                                                              */
+/* UI bindings                                                               */
 /* ------------------------------------------------------------------------- */
 
 bindRangeAndNumber(
@@ -5386,7 +5666,9 @@ bindRangeAndNumber(
   "terrainResolution",
   () => {},
   () => {
-    if (!params.running) {
+    if (
+      !params.running
+    ) {
       buildCurrentTerrain();
       resetSimulation();
     }
@@ -5400,7 +5682,9 @@ bindRangeAndNumber(
   "modelScale",
   () => {},
   () => {
-    if (!params.running) {
+    if (
+      !params.running
+    ) {
       buildCurrentTerrain();
       resetSimulation();
     }
@@ -5414,7 +5698,9 @@ bindRangeAndNumber(
   "metersPerModelUnit",
   () => {},
   () => {
-    if (!params.running) {
+    if (
+      !params.running
+    ) {
       buildCurrentTerrain();
       resetSimulation();
     }
@@ -5428,7 +5714,9 @@ bindRangeAndNumber(
   "verticalExaggeration",
   () => {},
   () => {
-    if (!params.running) {
+    if (
+      !params.running
+    ) {
       buildCurrentTerrain();
       resetSimulation();
     }
@@ -5442,7 +5730,9 @@ bindRangeAndNumber(
   "depthScale",
   () => {},
   () => {
-    if (!params.running) {
+    if (
+      !params.running
+    ) {
       buildCurrentTerrain();
       resetSimulation();
     }
@@ -5629,14 +5919,9 @@ ui.clearReleaseShapeButton.addEventListener(
 ui.resetOrientationButton.addEventListener(
   "click",
   () => {
-    params.rotationX =
-      0;
-
-    params.rotationY =
-      0;
-
-    params.rotationZ =
-      0;
+    params.rotationX = 0;
+    params.rotationY = 0;
+    params.rotationZ = 0;
 
     setSliderAndNumber(
       ui.rotationX,
@@ -5656,7 +5941,9 @@ ui.resetOrientationButton.addEventListener(
       0
     );
 
-    if (importedRawPoints) {
+    if (
+      importedRawPoints
+    ) {
       buildCurrentTerrain();
     }
 
@@ -5668,7 +5955,9 @@ ui.resetOrientationButton.addEventListener(
 ui.playButton.addEventListener(
   "click",
   () => {
-    if (params.running) {
+    if (
+      params.running
+    ) {
       pauseSimulation();
     } else {
       startSimulation();
@@ -5732,7 +6021,7 @@ ui.timeline.addEventListener(
 
 
 /* ------------------------------------------------------------------------- */
-/* Resize and animation                                                     */
+/* Resize and animation                                                      */
 /* ------------------------------------------------------------------------- */
 
 function resizeRenderer() {
@@ -5786,7 +6075,9 @@ function animate(currentTime) {
     currentTime;
 
   controls.update();
-  simulateFrame(deltaTime);
+  simulateFrame(
+    deltaTime
+  );
 
   renderer.render(
     scene,
@@ -5800,7 +6091,7 @@ function animate(currentTime) {
 
 
 /* ------------------------------------------------------------------------- */
-/* Initialisation                                                           */
+/* Initialisation                                                             */
 /* ------------------------------------------------------------------------- */
 
 syncInitialUi();
